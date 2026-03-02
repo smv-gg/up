@@ -5,47 +5,164 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spark + A-Frame • Hello World</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #scene-root {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    #html-fallback {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a1f2b 0%, #0a0d13 100%);
+      color: #fff;
+      font-family: sans-serif;
+      z-index: 9998;
+      text-align: center;
+      padding: 16px;
+    }
+  </style>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+
+  <script>
+    (async function () {
+      const AFRAME = window.AFRAME;
+      if (!AFRAME) {
+        throw new Error('A-Frame failed to load. Check the CDN script URL and your network connection.');
+      }
+
+      const status = document.createElement('div');
+      status.id = 'viewer-status';
+      status.textContent = 'Loading viewer…';
+      status.style.position = 'fixed';
+      status.style.top = '8px';
+      status.style.left = '8px';
+      status.style.zIndex = '9999';
+      status.style.padding = '8px 10px';
+      status.style.background = 'rgba(0, 0, 0, 0.65)';
+      status.style.color = '#fff';
+      status.style.fontFamily = 'monospace';
+      status.style.fontSize = '12px';
+      document.addEventListener('DOMContentLoaded', () => document.body.appendChild(status), { once: true });
+
+      const showHtmlFallback = (reason) => {
+        const fallback = document.getElementById('html-fallback');
+        if (!fallback) {
+          return;
+        }
+        fallback.style.display = 'flex';
+        fallback.textContent = `3D preview unavailable in this environment (${reason}). Viewer is still running.`;
+      };
+
+      const showAframeFallback = (reason) => {
+        status.textContent = `Spark unavailable. Showing fallback scene. (${reason})`;
+        status.style.background = 'rgba(120, 60, 0, 0.8)';
+        const fallback = document.getElementById('fallback-content');
+        if (fallback) {
+          fallback.setAttribute('visible', 'true');
+        }
+      };
+
+      const sparkModuleUrls = [
+        'https://sparkjs.dev/releases/spark/0.1.8/spark.module.js',
+        'https://esm.sh/@sparkjsdev/spark@0.1.8'
+      ];
+
+      let SplatMesh;
+      let SparkRenderer;
+      let loadedFrom = '';
+
+      for (const moduleUrl of sparkModuleUrls) {
+        try {
+          const sparkModule = await import(moduleUrl);
+          SplatMesh = sparkModule.SplatMesh;
+          SparkRenderer = sparkModule.SparkRenderer;
+          loadedFrom = moduleUrl;
+          break;
+        } catch (error) {
+          console.warn(`Spark import failed from ${moduleUrl}:`, error);
+        }
+      }
+
+      if (!SplatMesh || !SparkRenderer) {
+        showAframeFallback('module load failed');
+        return;
+      }
+
+      status.textContent = `Viewer loaded (Spark from ${loadedFrom})`;
+      status.style.background = 'rgba(0, 80, 30, 0.8)';
+
+      AFRAME.registerComponent('splat', {
+        schema: {
+          src: { default: '' }
+        },
+        init: function () {
+          const splat = new SplatMesh({ url: this.data.src });
+          splat.quaternion.set(1, 0, 0, 0);
+          this.el.setObject3D('mesh', splat);
+        }
+      });
+
+      AFRAME.registerSystem('splat', {
+        init: function () {
+          this.sceneEl.addEventListener('renderstart', () => {
+            if (!this.sceneEl.renderer) {
+              showAframeFallback('A-Frame renderer unavailable');
+              return;
+            }
+            const sparkRenderer = new SparkRenderer({ renderer: this.sceneEl.renderer });
+            this.sceneEl.object3D.add(sparkRenderer);
+          }, { once: true });
+        }
+      });
+
+      window.setTimeout(() => {
+        const canvas = document.querySelector('a-scene canvas');
+        if (!canvas) {
+          showHtmlFallback('WebGL canvas not created');
+        }
+      }, 2500);
+    })().catch((error) => {
+      console.error('Failed to initialize viewer:', error);
+      const message = document.createElement('pre');
+      message.textContent = `Viewer failed to initialize:\n${error.message}`;
+      message.style.color = 'white';
+      message.style.background = '#400';
+      message.style.padding = '12px';
+      message.style.whiteSpace = 'pre-wrap';
+      document.addEventListener('DOMContentLoaded', () => document.body.appendChild(message), { once: true });
+    });
+  </script>
 </head>
 
 <body>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/super-three@0.177.0/build/three.module.js",
-        "aframe": "https://aframe.io/releases/1.7.1/aframe.module.min.js",
-        "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.8/spark.module.js"
-      }
-    }
-  </script>
-  <script type="module">
-    import AFRAME from 'aframe';
-    import { SplatMesh, SparkRenderer } from "@sparkjsdev/spark";
+  <div id="html-fallback"></div>
 
+  <a-scene id="scene-root" embedded background="color: black">
+    <a-entity camera look-controls wasd-controls position="0 1.6 0"></a-entity>
 
-    AFRAME.registerComponent('splat', {
-      schema: {
-        src: {default: ''},
-      },
-      init: function () {
-        const splat = new SplatMesh({ url: this.data.src });
-        splat.quaternion.set(1, 0, 0, 0);
-        this.el.setObject3D('mesh', splat);
-      }
-    });
+    <a-entity id="fallback-content" visible="false">
+      <a-sky color="#1a1f2b"></a-sky>
+      <a-plane rotation="-90 0 0" width="20" height="20" color="#2f3a4f"></a-plane>
+      <a-box position="0 1 -3" color="#4CC3D9"></a-box>
+      <a-text value="Fallback scene loaded" position="-1.5 2 -3" color="#ffffff"></a-text>
+    </a-entity>
 
-    AFRAME.registerSystem('splat', {
-      init: function () {
-        const sparkRenderer = new SparkRenderer({ renderer: this.el.renderer });
-        this.sceneEl.object3D.add(sparkRenderer);
-      }
-    });
-  </script>
-  <a-scene background="color: black">
-    <a-entity camera wasd-controls position="0 1.6 0"></a-entity>
-    <a-entity
-      splat="src: https://sparkjs.dev/assets/splats/butterfly.spz"
-      position="0 1.6 -2"
-      ></a-entity>
+    <a-entity splat="src: https://sparkjs.dev/assets/splats/butterfly.spz" position="0 1.6 -2"></a-entity>
   </a-scene>
 </body>
+
 </html>
