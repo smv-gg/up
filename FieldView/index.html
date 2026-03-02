@@ -12,19 +12,25 @@
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/super-three@0.177.0/build/three.module.js",
-        "aframe": "https://aframe.io/releases/1.7.1/aframe.module.min.js",
         "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.8/spark.module.js"
       }
     }
   </script>
-  <script type="module">
-    import AFRAME from 'aframe';
-    import { SplatMesh, SparkRenderer } from "@sparkjsdev/spark";
 
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+
+  <script type="module">
+    import { SplatMesh, SparkRenderer } from '@sparkjsdev/spark';
+
+    const AFRAME = window.AFRAME;
+
+    if (!AFRAME) {
+      throw new Error('A-Frame failed to load. Check the CDN script URL and your network connection.');
+    }
 
     AFRAME.registerComponent('splat', {
       schema: {
-        src: {default: ''},
+        src: { default: '' }
       },
       init: function () {
         const splat = new SplatMesh({ url: this.data.src });
@@ -35,17 +41,18 @@
 
     AFRAME.registerSystem('splat', {
       init: function () {
-        const sparkRenderer = new SparkRenderer({ renderer: this.el.renderer });
-        this.sceneEl.object3D.add(sparkRenderer);
+        this.sceneEl.addEventListener('renderstart', () => {
+          const sparkRenderer = new SparkRenderer({ renderer: this.sceneEl.renderer });
+          this.sceneEl.object3D.add(sparkRenderer);
+        }, { once: true });
       }
     });
   </script>
+
   <a-scene background="color: black">
     <a-entity camera wasd-controls position="0 1.6 0"></a-entity>
-    <a-entity
-      splat="src: https://sparkjs.dev/assets/splats/butterfly.spz"
-      position="0 1.6 -2"
-      ></a-entity>
+    <a-entity splat="src: https://sparkjs.dev/assets/splats/butterfly.spz" position="0 1.6 -2"></a-entity>
   </a-scene>
 </body>
+
 </html>
