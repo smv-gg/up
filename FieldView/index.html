@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spark + A-Frame • Hello World</title>
-</head>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
 
 <body>
   <script type="importmap">
@@ -37,7 +37,6 @@
         splat.quaternion.set(1, 0, 0, 0);
         this.el.setObject3D('mesh', splat);
       }
-    });
 
     AFRAME.registerSystem('splat', {
       init: function () {
@@ -46,6 +45,42 @@
           this.sceneEl.object3D.add(sparkRenderer);
         }, { once: true });
       }
+
+      status.textContent = `Viewer loaded (Spark from ${loadedFrom})`;
+      status.style.background = 'rgba(0, 80, 30, 0.8)';
+
+      AFRAME.registerComponent('splat', {
+        schema: {
+          src: { default: '' }
+        },
+        init: function () {
+          const splat = new SplatMesh({ url: this.data.src });
+          splat.quaternion.set(1, 0, 0, 0);
+          this.el.setObject3D('mesh', splat);
+        }
+      });
+
+      AFRAME.registerSystem('splat', {
+        init: function () {
+          this.sceneEl.addEventListener('renderstart', () => {
+            if (!this.sceneEl.renderer) {
+              showFallback('A-Frame renderer unavailable');
+              return;
+            }
+            const sparkRenderer = new SparkRenderer({ renderer: this.sceneEl.renderer });
+            this.sceneEl.object3D.add(sparkRenderer);
+          }, { once: true });
+        }
+      });
+    })().catch((error) => {
+      console.error('Failed to initialize viewer:', error);
+      const message = document.createElement('pre');
+      message.textContent = `Viewer failed to initialize:\n${error.message}`;
+      message.style.color = 'white';
+      message.style.background = '#400';
+      message.style.padding = '12px';
+      message.style.whiteSpace = 'pre-wrap';
+      document.addEventListener('DOMContentLoaded', () => document.body.appendChild(message), { once: true });
     });
   </script>
 
